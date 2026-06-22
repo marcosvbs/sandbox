@@ -1,19 +1,29 @@
 import tkinter as tk
+from tkinter import font as tkfont
+from tkinter import ttk
 from collections import deque
 
 EMPTY, START, END, WALL, PATH, SEARCHED = range(6)
 
+WIN_BG = "#181825"
+GRID_BG = "#1e1e2e"
+GRID_LINE = "#1e1e2e"
+TEXT_FG = "#cdd6f4"
+SUBTLE_FG = "#9399b2"
+
 COLORS = {
-    EMPTY: "white",
-    START: "blue",
-    END: "orange",
-    WALL: "black",
-    PATH: "green",
-    SEARCHED: "gray",
+    EMPTY: "#313244",
+    START: "#89b4fa",
+    END: "#fab387",
+    WALL: "#11111b",
+    PATH: "#a6e3a1",
+    SEARCHED: "#585b70",
 }
 
-ROWS, COLUMNS, CELL_SIZE = 10, 10, 50
-STEP_DELAY = 30
+ROWS, COLUMNS, CELL_SIZE = 10, 10, 54
+STEP_DELAY = 26
+CELL_GAP = 3
+CELL_RADIUS = 10
 
 board = [[EMPTY] * COLUMNS for _ in range(ROWS)]
 start = None
@@ -23,8 +33,35 @@ search_after_id = None
 
 root = tk.Tk()
 root.title("BFS Pathfinder")
+root.configure(bg=WIN_BG)
+root.resizable(False, False)
 
-canvas = tk.Canvas(root, width=500, height=500)
+container = tk.Frame(root, bg=WIN_BG, padx=20, pady=18)
+container.pack()
+
+title_font = tkfont.Font(family="Helvetica", size=18, weight="bold")
+sub_font = tkfont.Font(family="Helvetica", size=10)
+header = tk.Frame(container, bg=WIN_BG)
+header.pack(fill="x", pady=(0, 12))
+tk.Label(header, text="BFS Pathfinder", font=title_font, fg=TEXT_FG, bg=WIN_BG).pack(
+    anchor="w"
+)
+tk.Label(
+    header,
+    text="Click: 1st = start, 2nd = end, rest = toggle walls. Then find the shortest path.",
+    font=sub_font,
+    fg=SUBTLE_FG,
+    bg=WIN_BG,
+).pack(anchor="w")
+
+canvas = tk.Canvas(
+    container,
+    width=COLUMNS * CELL_SIZE,
+    height=ROWS * CELL_SIZE,
+    bg=GRID_BG,
+    highlightthickness=0,
+    bd=0,
+)
 canvas.pack()
 
 
@@ -51,18 +88,53 @@ def on_click(event):
 canvas.bind("<Button-1>", on_click)
 
 
+def _round_rect(x1, y1, x2, y2, r, **kwargs):
+    points = [
+        x1 + r,
+        y1,
+        x2 - r,
+        y1,
+        x2,
+        y1,
+        x2,
+        y1 + r,
+        x2,
+        y2 - r,
+        x2,
+        y2,
+        x2 - r,
+        y2,
+        x1 + r,
+        y2,
+        x1,
+        y2,
+        x1,
+        y2 - r,
+        x1,
+        y1 + r,
+        x1,
+        y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
+
 def draw_board():
     canvas.delete("all")
     for r in range(ROWS):
         for c in range(COLUMNS):
-            x1, y1 = c * CELL_SIZE, r * CELL_SIZE
-            canvas.create_rectangle(
+            x1 = c * CELL_SIZE + CELL_GAP
+            y1 = r * CELL_SIZE + CELL_GAP
+            x2 = x1 + CELL_SIZE - 2 * CELL_GAP
+            y2 = y1 + CELL_SIZE - 2 * CELL_GAP
+            _round_rect(
                 x1,
                 y1,
-                x1 + CELL_SIZE,
-                y1 + CELL_SIZE,
+                x2,
+                y2,
+                CELL_RADIUS,
                 fill=COLORS[board[r][c]],
-                outline="black",
+                outline=GRID_LINE,
+                width=1,
             )
 
 
@@ -129,8 +201,57 @@ def reset():
     draw_board()
 
 
-tk.Button(root, text="Find Shortest Path", command=find_path).pack(fill="x")
-tk.Button(root, text="Reset", command=reset).pack(fill="x")
+legend = tk.Frame(container, bg=WIN_BG)
+legend.pack(fill="x", pady=(12, 12))
+legend_font = tkfont.Font(family="Helvetica", size=9)
+for label, color in (
+    ("Start", COLORS[START]),
+    ("End", COLORS[END]),
+    ("Wall", COLORS[WALL]),
+    ("Searched", COLORS[SEARCHED]),
+    ("Path", COLORS[PATH]),
+):
+    item = tk.Frame(legend, bg=WIN_BG)
+    item.pack(side="left", padx=(0, 14))
+    tk.Label(item, bg=color, width=2, height=1, bd=0, relief="flat").pack(
+        side="left", padx=(0, 5)
+    )
+    tk.Label(item, text=label, font=legend_font, fg=SUBTLE_FG, bg=WIN_BG).pack(
+        side="left"
+    )
+
+style = ttk.Style()
+style.theme_use("clam")
+btn_font = tkfont.Font(family="Helvetica", size=11, weight="bold")
+style.configure(
+    "Primary.TButton",
+    font=btn_font,
+    foreground="#11111b",
+    background="#89b4fa",
+    borderwidth=0,
+    focuscolor="#89b4fa",
+    padding=(12, 10),
+)
+style.map("Primary.TButton", background=[("active", "#74a0f0"), ("pressed", "#6690e6")])
+style.configure(
+    "Neutral.TButton",
+    font=btn_font,
+    foreground=TEXT_FG,
+    background="#45475a",
+    borderwidth=0,
+    focuscolor="#45475a",
+    padding=(12, 10),
+)
+style.map("Neutral.TButton", background=[("active", "#585b70"), ("pressed", "#3a3c4e")])
+
+buttons = tk.Frame(container, bg=WIN_BG)
+buttons.pack(fill="x")
+ttk.Button(
+    buttons, text="Find Shortest Path", command=find_path, style="Primary.TButton"
+).pack(side="left", expand=True, fill="x", padx=(0, 5))
+ttk.Button(buttons, text="Reset", command=reset, style="Neutral.TButton").pack(
+    side="left", expand=True, fill="x", padx=(5, 0)
+)
 
 draw_board()
 root.mainloop()
